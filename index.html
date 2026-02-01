@@ -1,0 +1,978 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Content Calendar + AI Post Generator | RodinX.ai</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#7c3aed',
+                        secondary: '#db2777',
+                        dark: '#0f172a',
+                        'dark-light': '#1e293b',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap');
+
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+
+        .gradient-bg {
+            background: linear-gradient(135deg, #7c3aed 0%, #db2777 100%);
+        }
+
+        .glass-effect {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(124, 58, 237, 0.3);
+        }
+
+        .calendar-day {
+            transition: all 0.3s ease;
+            min-height: 120px;
+        }
+
+        .calendar-day:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 30px rgba(124, 58, 237, 0.4);
+        }
+
+        .post-card {
+            transition: all 0.3s ease;
+        }
+
+        .post-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 40px rgba(124, 58, 237, 0.5);
+        }
+
+        .tab-active {
+            background: linear-gradient(135deg, #7c3aed, #db2777);
+            color: white;
+        }
+
+        .pulse-animation {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.5;
+            }
+        }
+
+        .typing-indicator {
+            display: inline-flex;
+            gap: 4px;
+        }
+
+        .typing-indicator span {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #7c3aed;
+            animation: typing 1.4s infinite;
+        }
+
+        .typing-indicator span:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+
+        .typing-indicator span:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+
+        @keyframes typing {
+            0%, 60%, 100% {
+                transform: translateY(0);
+            }
+            30% {
+                transform: translateY(-10px);
+            }
+        }
+
+        .skeleton {
+            background: linear-gradient(90deg, #1e293b 25%, #334155 50%, #1e293b 75%);
+            background-size: 200% 100%;
+            animation: loading 1.5s infinite;
+        }
+
+        @keyframes loading {
+            0% {
+                background-position: 200% 0;
+            }
+            100% {
+                background-position: -200% 0;
+            }
+        }
+
+        .emoji-picker {
+            display: grid;
+            grid-template-columns: repeat(8, 1fr);
+            gap: 8px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .emoji-picker button {
+            font-size: 1.5em;
+            padding: 8px;
+            border-radius: 8px;
+            transition: all 0.2s;
+        }
+
+        .emoji-picker button:hover {
+            background: rgba(124, 58, 237, 0.2);
+            transform: scale(1.2);
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #1e293b;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: linear-gradient(135deg, #7c3aed, #db2777);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #7c3aed;
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 min-h-screen text-slate-100">
+
+    <!-- Header -->
+    <header class="gradient-bg shadow-2xl sticky top-0 z-50">
+        <div class="container mx-auto px-6 py-6">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h1 class="text-3xl font-bold text-white mb-2">📅 Content Calendar</h1>
+                    <p class="text-pink-100 text-sm">+ AI Post Generator | Планируй. Создавай. Публикуй.</p>
+                </div>
+                <div class="flex items-center gap-4">
+                    <button onclick="showStats()" class="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg transition-all">
+                        📊 Статистика
+                    </button>
+                    <button onclick="exportCalendar()" class="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg transition-all">
+                        💾 Экспорт
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div class="container mx-auto px-6 py-8">
+
+        <!-- Quick Stats -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+            <div class="glass-effect rounded-2xl p-6 border-l-4 border-purple-500">
+                <div class="text-slate-400 text-sm mb-2">Постов запланировано</div>
+                <div class="text-3xl font-bold text-white" id="stat-planned">0</div>
+                <div class="text-green-400 text-sm mt-1">Февраль 2026</div>
+            </div>
+            <div class="glass-effect rounded-2xl p-6 border-l-4 border-pink-500">
+                <div class="text-slate-400 text-sm mb-2">Опубликовано</div>
+                <div class="text-3xl font-bold text-white" id="stat-published">0</div>
+                <div class="text-green-400 text-sm mt-1">+12% vs прошлый месяц</div>
+            </div>
+            <div class="glass-effect rounded-2xl p-6 border-l-4 border-blue-500">
+                <div class="text-slate-400 text-sm mb-2">Генераций AI</div>
+                <div class="text-3xl font-bold text-white" id="stat-ai">0</div>
+                <div class="text-purple-400 text-sm mt-1">Сэкономлено: ~5 часов</div>
+            </div>
+            <div class="glass-effect rounded-2xl p-6 border-l-4 border-green-500">
+                <div class="text-slate-400 text-sm mb-2">Охват (прогноз)</div>
+                <div class="text-3xl font-bold text-white" id="stat-reach">0</div>
+                <div class="text-green-400 text-sm mt-1">На основе истории</div>
+            </div>
+        </div>
+
+        <!-- Main Content: Tabs -->
+        <div class="glass-effect rounded-2xl p-6 mb-8">
+            <div class="flex flex-wrap gap-3 mb-6 border-b border-slate-700 pb-4">
+                <button onclick="switchTab('calendar')" class="tab-button tab-active px-6 py-3 rounded-lg font-semibold transition-all" data-tab="calendar">
+                    📅 Календарь
+                </button>
+                <button onclick="switchTab('generator')" class="tab-button px-6 py-3 rounded-lg font-semibold bg-slate-700/50 hover:bg-slate-600/50 transition-all" data-tab="generator">
+                    🤖 AI Генератор
+                </button>
+                <button onclick="switchTab('templates')" class="tab-button px-6 py-3 rounded-lg font-semibold bg-slate-700/50 hover:bg-slate-600/50 transition-all" data-tab="templates">
+                    📝 Шаблоны
+                </button>
+                <button onclick="switchTab('analytics')" class="tab-button px-6 py-3 rounded-lg font-semibold bg-slate-700/50 hover:bg-slate-600/50 transition-all" data-tab="analytics">
+                    📈 Аналитика
+                </button>
+            </div>
+
+            <!-- Tab: Calendar -->
+            <div id="tab-calendar" class="tab-content">
+                <div class="flex items-center justify-between mb-6">
+                    <div class="flex items-center gap-4">
+                        <button onclick="changeMonth(-1)" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg transition-all">
+                            ← Назад
+                        </button>
+                        <h2 class="text-2xl font-bold" id="current-month">Февраль 2026</h2>
+                        <button onclick="changeMonth(1)" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg transition-all">
+                            Вперёд →
+                        </button>
+                    </div>
+                    <button onclick="addPost()" class="px-6 py-3 gradient-bg text-white font-semibold rounded-lg shadow-lg hover:shadow-2xl transition-all">
+                        ➕ Добавить пост
+                    </button>
+                </div>
+
+                <!-- Calendar Grid -->
+                <div class="grid grid-cols-7 gap-2 mb-4">
+                    <div class="text-center font-semibold text-slate-400 py-2">ПН</div>
+                    <div class="text-center font-semibold text-slate-400 py-2">ВТ</div>
+                    <div class="text-center font-semibold text-slate-400 py-2">СР</div>
+                    <div class="text-center font-semibold text-slate-400 py-2">ЧТ</div>
+                    <div class="text-center font-semibold text-slate-400 py-2">ПТ</div>
+                    <div class="text-center font-semibold text-slate-400 py-2">СБ</div>
+                    <div class="text-center font-semibold text-slate-400 py-2">ВС</div>
+                </div>
+
+                <div id="calendar-grid" class="grid grid-cols-7 gap-2">
+                    <!-- Calendar days will be generated by JS -->
+                </div>
+            </div>
+
+            <!-- Tab: AI Generator -->
+            <div id="tab-generator" class="tab-content hidden">
+                <div class="grid md:grid-cols-2 gap-8">
+                    <!-- Input Panel -->
+                    <div>
+                        <h3 class="text-xl font-bold mb-4 text-white">⚙️ Параметры генерации</h3>
+
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-semibold text-slate-300 mb-2">Тип контента</label>
+                                <select id="post-type" class="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-purple-500 outline-none">
+                                    <option value="education">📚 Образовательный</option>
+                                    <option value="case">💼 Кейс / Результат</option>
+                                    <option value="motivation">🔥 Мотивационный</option>
+                                    <option value="announcement">📢 Анонс</option>
+                                    <option value="question">❓ Вопрос аудитории</option>
+                                    <option value="story">📖 История / Опыт</option>
+                                    <option value="tips">💡 Полезные советы</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-semibold text-slate-300 mb-2">Платформа</label>
+                                <select id="platform" class="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-purple-500 outline-none">
+                                    <option value="vk">VK</option>
+                                    <option value="telegram">Telegram</option>
+                                    <option value="instagram">Instagram*</option>
+                                    <option value="linkedin">LinkedIn</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-semibold text-slate-300 mb-2">Тема / Ключевая идея</label>
+                                <input type="text" id="topic" placeholder="Например: Как автоматизировать продажи через CRM" class="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white placeholder-slate-400 focus:ring-2 focus:ring-purple-500 outline-none">
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-semibold text-slate-300 mb-2">Тон голоса</label>
+                                <select id="tone" class="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-purple-500 outline-none">
+                                    <option value="professional">Профессиональный</option>
+                                    <option value="casual">Дружелюбный</option>
+                                    <option value="expert">Экспертный</option>
+                                    <option value="motivational">Мотивирующий</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-semibold text-slate-300 mb-2">Длина поста</label>
+                                <select id="length" class="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-purple-500 outline-none">
+                                    <option value="short">Короткий (до 500 символов)</option>
+                                    <option value="medium">Средний (500-1000 символов)</option>
+                                    <option value="long">Длинный (1000-2000 символов)</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-semibold text-slate-300 mb-2">
+                                    <input type="checkbox" id="include-cta" class="mr-2" checked>
+                                    Добавить призыв к действию (CTA)
+                                </label>
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-semibold text-slate-300 mb-2">
+                                    <input type="checkbox" id="include-hashtags" class="mr-2" checked>
+                                    Добавить хештеги
+                                </label>
+                            </div>
+
+                            <button onclick="generatePost()" class="w-full gradient-bg text-white font-bold py-4 rounded-lg shadow-lg hover:shadow-2xl transition-all text-lg">
+                                ✨ Сгенерировать пост
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Output Panel -->
+                    <div>
+                        <h3 class="text-xl font-bold mb-4 text-white">📝 Результат</h3>
+
+                        <div id="generated-post-area" class="bg-slate-700/50 border border-slate-600 rounded-lg p-6 min-h-[400px]">
+                            <div class="text-center text-slate-400 py-20">
+                                <div class="text-6xl mb-4">🤖</div>
+                                <p>Заполните параметры и нажмите "Сгенерировать пост"</p>
+                            </div>
+                        </div>
+
+                        <div id="post-actions" class="hidden mt-4 flex gap-3">
+                            <button onclick="copyPost()" class="flex-1 px-4 py-3 bg-green-600 hover:bg-green-700 rounded-lg font-semibold transition-all">
+                                📋 Копировать
+                            </button>
+                            <button onclick="saveToCalendar()" class="flex-1 px-4 py-3 bg-purple-600 hover:bg-purple-700 rounded-lg font-semibold transition-all">
+                                💾 Сохранить в календарь
+                            </button>
+                            <button onclick="regeneratePost()" class="flex-1 px-4 py-3 bg-blue-600 hover:bg-blue-700 rounded-lg font-semibold transition-all">
+                                🔄 Перегенерировать
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab: Templates -->
+            <div id="tab-templates" class="tab-content hidden">
+                <h3 class="text-xl font-bold mb-6 text-white">📝 Готовые шаблоны постов</h3>
+
+                <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6" id="templates-grid">
+                    <!-- Templates will be generated by JS -->
+                </div>
+            </div>
+
+            <!-- Tab: Analytics -->
+            <div id="tab-analytics" class="tab-content hidden">
+                <h3 class="text-xl font-bold mb-6 text-white">📈 Аналитика контента</h3>
+
+                <div class="grid md:grid-cols-2 gap-8">
+                    <div class="glass-effect rounded-xl p-6">
+                        <h4 class="font-bold text-lg mb-4">Распределение по типам</h4>
+                        <div class="space-y-3">
+                            <div>
+                                <div class="flex justify-between text-sm mb-1">
+                                    <span>Образовательные</span>
+                                    <span class="font-bold">45%</span>
+                                </div>
+                                <div class="w-full bg-slate-700 rounded-full h-2">
+                                    <div class="bg-purple-500 h-2 rounded-full" style="width: 45%"></div>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="flex justify-between text-sm mb-1">
+                                    <span>Кейсы</span>
+                                    <span class="font-bold">25%</span>
+                                </div>
+                                <div class="w-full bg-slate-700 rounded-full h-2">
+                                    <div class="bg-pink-500 h-2 rounded-full" style="width: 25%"></div>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="flex justify-between text-sm mb-1">
+                                    <span>Мотивация</span>
+                                    <span class="font-bold">20%</span>
+                                </div>
+                                <div class="w-full bg-slate-700 rounded-full h-2">
+                                    <div class="bg-blue-500 h-2 rounded-full" style="width: 20%"></div>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="flex justify-between text-sm mb-1">
+                                    <span>Анонсы</span>
+                                    <span class="font-bold">10%</span>
+                                </div>
+                                <div class="w-full bg-slate-700 rounded-full h-2">
+                                    <div class="bg-green-500 h-2 rounded-full" style="width: 10%"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="glass-effect rounded-xl p-6">
+                        <h4 class="font-bold text-lg mb-4">Лучшее время публикации</h4>
+                        <div class="space-y-4">
+                            <div class="flex items-center justify-between">
+                                <span class="text-slate-300">Понедельник</span>
+                                <span class="font-bold text-green-400">10:00, 18:00</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-slate-300">Вторник</span>
+                                <span class="font-bold text-green-400">09:00, 15:00</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-slate-300">Среда</span>
+                                <span class="font-bold text-green-400">11:00, 17:00</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-slate-300">Четверг</span>
+                                <span class="font-bold text-green-400">10:00, 19:00</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-slate-300">Пятница</span>
+                                <span class="font-bold text-yellow-400">12:00, 16:00</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="glass-effect rounded-xl p-6 mt-8">
+                    <h4 class="font-bold text-lg mb-4">Топ-5 постов по вовлечённости</h4>
+                    <div class="space-y-4">
+                        <div class="flex items-center gap-4 p-4 bg-slate-700/50 rounded-lg">
+                            <div class="text-2xl">🏆</div>
+                            <div class="flex-1">
+                                <div class="font-semibold">Как автоматизировать продажи через CRM</div>
+                                <div class="text-sm text-slate-400">28 января • Образовательный</div>
+                            </div>
+                            <div class="text-right">
+                                <div class="font-bold text-green-400">1,247</div>
+                                <div class="text-xs text-slate-400">вовлечений</div>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-4 p-4 bg-slate-700/50 rounded-lg">
+                            <div class="text-2xl">🥈</div>
+                            <div class="flex-1">
+                                <div class="font-semibold">Кейс: +300% ROI за 3 месяца</div>
+                                <div class="text-sm text-slate-400">25 января • Кейс</div>
+                            </div>
+                            <div class="text-right">
+                                <div class="font-bold text-green-400">982</div>
+                                <div class="text-xs text-slate-400">вовлечений</div>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-4 p-4 bg-slate-700/50 rounded-lg">
+                            <div class="text-2xl">🥉</div>
+                            <div class="flex-1">
+                                <div class="font-semibold">5 ошибок в SMM (и как их избежать)</div>
+                                <div class="text-sm text-slate-400">22 января • Советы</div>
+                            </div>
+                            <div class="text-right">
+                                <div class="font-bold text-green-400">876</div>
+                                <div class="text-xs text-slate-400">вовлечений</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Modal: Add/Edit Post -->
+    <div id="post-modal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-6">
+        <div class="glass-effect rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div class="p-6 border-b border-slate-700">
+                <h3 class="text-2xl font-bold text-white" id="modal-title">Добавить пост</h3>
+            </div>
+            <div class="p-6 space-y-4">
+                <div>
+                    <label class="block text-sm font-semibold text-slate-300 mb-2">Дата публикации</label>
+                    <input type="date" id="modal-date" class="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-purple-500 outline-none">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-slate-300 mb-2">Время</label>
+                    <input type="time" id="modal-time" value="12:00" class="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-purple-500 outline-none">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-slate-300 mb-2">Текст поста</label>
+                    <textarea id="modal-content" rows="8" placeholder="Введите текст поста..." class="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white placeholder-slate-400 focus:ring-2 focus:ring-purple-500 outline-none resize-none"></textarea>
+                    <div class="text-sm text-slate-400 mt-1">
+                        <span id="char-count">0</span> символов
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-slate-300 mb-2">Платформа</label>
+                    <select id="modal-platform" class="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-purple-500 outline-none">
+                        <option value="vk">VK</option>
+                        <option value="telegram">Telegram</option>
+                        <option value="instagram">Instagram*</option>
+                        <option value="linkedin">LinkedIn</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-slate-300 mb-2">Статус</label>
+                    <select id="modal-status" class="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-purple-500 outline-none">
+                        <option value="draft">📝 Черновик</option>
+                        <option value="scheduled">⏰ Запланировано</option>
+                        <option value="published">✅ Опубликовано</option>
+                    </select>
+                </div>
+            </div>
+            <div class="p-6 border-t border-slate-700 flex gap-3">
+                <button onclick="closeModal()" class="flex-1 px-6 py-3 bg-slate-700 hover:bg-slate-600 rounded-lg font-semibold transition-all">
+                    Отмена
+                </button>
+                <button onclick="savePost()" class="flex-1 px-6 py-3 gradient-bg text-white font-semibold rounded-lg shadow-lg hover:shadow-2xl transition-all">
+                    Сохранить
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // State Management
+        let currentDate = new Date(2026, 1, 1); // February 2026
+        let posts = [];
+        let currentEditingPost = null;
+
+        // Templates
+        const templates = [
+            {
+                title: "📚 Образовательный пост",
+                description: "Делитесь знаниями и экспертизой",
+                content: "Сегодня разберём [ТЕМУ].
+
+🔹 Главное:
+• Пункт 1
+• Пункт 2
+• Пункт 3
+
+💡 Вывод: [ВЫВОД]
+
+❓ Какие вопросы остались?"
+            },
+            {
+                title: "💼 Кейс / Результат",
+                description: "Покажите конкретные результаты",
+                content: "Кейс: [НАЗВАНИЕ ПРОЕКТА]
+
+📊 Задача: [ЗАДАЧА]
+⚡ Решение: [ЧТО СДЕЛАЛИ]
+🎯 Результат:
+• Метрика 1: +X%
+• Метрика 2: +Y%
+• Срок: Z недель
+
+✅ Хотите так же?"
+            },
+            {
+                title: "🔥 Мотивационный",
+                description: "Вдохновите аудиторию",
+                content: "Иногда кажется, что [ПРОБЛЕМА].
+
+Но правда в том, что [ИНСАЙТ].
+
+💪 Что делать:
+1. [ДЕЙСТВИЕ 1]
+2. [ДЕЙСТВИЕ 2]
+3. [ДЕЙСТВИЕ 3]
+
+Вперёд! 🚀"
+            },
+            {
+                title: "📢 Анонс",
+                description: "Расскажите о событии/запуске",
+                content: "🎉 Объявляем: [СОБЫТИЕ]!
+
+📅 Когда: [ДАТА]
+📍 Где: [МЕСТО/ФОРМАТ]
+🎁 Бонус: [ПРЕИМУЩЕСТВО]
+
+✅ Регистрация: [ССЫЛКА]
+
+Увидимся!"
+            },
+            {
+                title: "❓ Вопрос аудитории",
+                description: "Вовлеките через вопрос",
+                content: "Друзья, опрос! 🤔
+
+[ВОПРОС]?
+
+А) [ВАРИАНТ A]
+Б) [ВАРИАНТ Б]
+В) [ВАРИАНТ В]
+
+Пишите в комментариях!"
+            },
+            {
+                title: "💡 Полезные советы",
+                description: "5 быстрых советов",
+                content: "5 советов по [ТЕМА]:
+
+1️⃣ [СОВЕТ 1]
+2️⃣ [СОВЕТ 2]
+3️⃣ [СОВЕТ 3]
+4️⃣ [СОВЕТ 4]
+5️⃣ [СОВЕТ 5]
+
+💾 Сохраните, пригодится!"
+            }
+        ];
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            loadFromStorage();
+            renderCalendar();
+            renderTemplates();
+            updateStats();
+
+            // Character counter
+            document.getElementById('modal-content').addEventListener('input', (e) => {
+                document.getElementById('char-count').textContent = e.target.value.length;
+            });
+        });
+
+        // Tab Switching
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab-content').forEach(tab => tab.classList.add('hidden'));
+            document.querySelectorAll('.tab-button').forEach(btn => {
+                btn.classList.remove('tab-active');
+                btn.classList.add('bg-slate-700/50', 'hover:bg-slate-600/50');
+            });
+
+            document.getElementById(`tab-${tabName}`).classList.remove('hidden');
+            const activeBtn = document.querySelector(`[data-tab="${tabName}"]`);
+            activeBtn.classList.add('tab-active');
+            activeBtn.classList.remove('bg-slate-700/50', 'hover:bg-slate-600/50');
+        }
+
+        // Calendar Rendering
+        function renderCalendar() {
+            const grid = document.getElementById('calendar-grid');
+            const year = currentDate.getFullYear();
+            const month = currentDate.getMonth();
+
+            const firstDay = new Date(year, month, 1);
+            const lastDay = new Date(year, month + 1, 0);
+            const daysInMonth = lastDay.getDate();
+            const startingDayOfWeek = firstDay.getDay() || 7;
+
+            document.getElementById('current-month').textContent = 
+                `${firstDay.toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' })}`;
+
+            grid.innerHTML = '';
+
+            // Empty cells before first day
+            for (let i = 1; i < startingDayOfWeek; i++) {
+                grid.innerHTML += '<div class="calendar-day bg-slate-800/30 rounded-lg"></div>';
+            }
+
+            // Days
+            for (let day = 1; day <= daysInMonth; day++) {
+                const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                const dayPosts = posts.filter(p => p.date === dateStr);
+                const isToday = new Date().toDateString() === new Date(dateStr).toDateString();
+
+                grid.innerHTML += `
+                    <div class="calendar-day bg-slate-800/50 rounded-lg p-3 cursor-pointer border ${isToday ? 'border-purple-500' : 'border-slate-700'}" 
+                         onclick="addPost('${dateStr}')">
+                        <div class="text-sm font-semibold mb-2 ${isToday ? 'text-purple-400' : 'text-slate-300'}">${day}</div>
+                        ${dayPosts.map(post => `
+                            <div class="bg-purple-600/30 border border-purple-500/50 rounded px-2 py-1 text-xs mb-1 truncate" 
+                                 onclick="event.stopPropagation(); editPost('${post.id}')">
+                                ${post.platform === 'vk' ? '🔵' : post.platform === 'telegram' ? '✈️' : post.platform === 'instagram' ? '📷' : '💼'} 
+                                ${post.time} ${post.content.substring(0, 20)}...
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            }
+        }
+
+        function changeMonth(delta) {
+            currentDate.setMonth(currentDate.getMonth() + delta);
+            renderCalendar();
+        }
+
+        // Post Management
+        function addPost(date = null) {
+            currentEditingPost = null;
+            document.getElementById('modal-title').textContent = 'Добавить пост';
+            document.getElementById('modal-date').value = date || new Date().toISOString().split('T')[0];
+            document.getElementById('modal-time').value = '12:00';
+            document.getElementById('modal-content').value = '';
+            document.getElementById('modal-platform').value = 'vk';
+            document.getElementById('modal-status').value = 'scheduled';
+            document.getElementById('char-count').textContent = '0';
+            document.getElementById('post-modal').classList.remove('hidden');
+        }
+
+        function editPost(id) {
+            const post = posts.find(p => p.id === id);
+            if (!post) return;
+
+            currentEditingPost = post;
+            document.getElementById('modal-title').textContent = 'Редактировать пост';
+            document.getElementById('modal-date').value = post.date;
+            document.getElementById('modal-time').value = post.time;
+            document.getElementById('modal-content').value = post.content;
+            document.getElementById('modal-platform').value = post.platform;
+            document.getElementById('modal-status').value = post.status;
+            document.getElementById('char-count').textContent = post.content.length;
+            document.getElementById('post-modal').classList.remove('hidden');
+        }
+
+        function savePost() {
+            const date = document.getElementById('modal-date').value;
+            const time = document.getElementById('modal-time').value;
+            const content = document.getElementById('modal-content').value;
+            const platform = document.getElementById('modal-platform').value;
+            const status = document.getElementById('modal-status').value;
+
+            if (!date || !content) {
+                alert('Заполните дату и текст поста');
+                return;
+            }
+
+            if (currentEditingPost) {
+                currentEditingPost.date = date;
+                currentEditingPost.time = time;
+                currentEditingPost.content = content;
+                currentEditingPost.platform = platform;
+                currentEditingPost.status = status;
+            } else {
+                posts.push({
+                    id: Date.now().toString(),
+                    date,
+                    time,
+                    content,
+                    platform,
+                    status
+                });
+            }
+
+            saveToStorage();
+            renderCalendar();
+            updateStats();
+            closeModal();
+        }
+
+        function closeModal() {
+            document.getElementById('post-modal').classList.add('hidden');
+        }
+
+        // AI Post Generator
+        async function generatePost() {
+            const type = document.getElementById('post-type').value;
+            const platform = document.getElementById('platform').value;
+            const topic = document.getElementById('topic').value;
+            const tone = document.getElementById('tone').value;
+            const length = document.getElementById('length').value;
+            const includeCTA = document.getElementById('include-cta').checked;
+            const includeHashtags = document.getElementById('include-hashtags').checked;
+
+            if (!topic) {
+                alert('Укажите тему поста');
+                return;
+            }
+
+            const area = document.getElementById('generated-post-area');
+            area.innerHTML = `
+                <div class="text-center py-20">
+                    <div class="typing-indicator mb-4 justify-center">
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                    </div>
+                    <p class="text-slate-300">AI генерирует пост...</p>
+                </div>
+            `;
+
+            // Simulate AI generation
+            setTimeout(() => {
+                const post = generateMockPost(type, topic, tone, length, includeCTA, includeHashtags);
+                area.innerHTML = `
+                    <div class="prose prose-invert max-w-none">
+                        <div class="whitespace-pre-wrap text-slate-100 leading-relaxed">${post}</div>
+                    </div>
+                `;
+                document.getElementById('post-actions').classList.remove('hidden');
+
+                // Update stats
+                const currentAI = parseInt(document.getElementById('stat-ai').textContent);
+                document.getElementById('stat-ai').textContent = currentAI + 1;
+            }, 2000);
+        }
+
+        function generateMockPost(type, topic, tone, length, includeCTA, includeHashtags) {
+            let post = '';
+
+            // Generate based on type
+            const templates = {
+                education: `📚 ${topic}
+
+Сегодня разберём важную тему.
+
+🔹 Главное:
+• Ключевой момент 1
+• Ключевой момент 2
+• Ключевой момент 3
+
+💡 Вывод: Применяйте эти знания на практике, и результат не заставит себя ждать.`,
+                case: `💼 Кейс: ${topic}
+
+📊 Задача: Повысить эффективность процесса
+⚡ Решение: Внедрили автоматизацию
+🎯 Результат:
+• Скорость: +150%
+• Затраты: -40%
+• Срок: 3 недели
+
+✅ Хотите так же? Пишите в комментариях!`,
+                motivation: `🔥 ${topic}
+
+Иногда кажется, что всё слишком сложно. Но правда в том, что первый шаг — самый важный.
+
+💪 Что делать:
+1. Начните с малого
+2. Действуйте последовательно
+3. Не сдавайтесь
+
+Вперёд! 🚀`,
+                announcement: `🎉 Объявляем: ${topic}!
+
+📅 Когда: Скоро
+📍 Формат: Онлайн/Офлайн
+🎁 Бонус: Эксклюзивные материалы
+
+✅ Следите за обновлениями!`,
+                question: `Друзья, опрос! 🤔
+
+${topic}?
+
+А) Вариант А
+Б) Вариант Б
+В) Свой вариант
+
+Пишите в комментариях, интересно ваше мнение!`,
+                story: `📖 История про ${topic}
+
+Всё началось с того, что...
+
+И знаете, что самое интересное? То, что казалось проблемой, стало возможностью.
+
+💡 Урок: Иногда нужно просто начать.`,
+                tips: `💡 5 советов по теме: ${topic}
+
+1️⃣ Совет первый
+2️⃣ Совет второй
+3️⃣ Совет третий
+4️⃣ Совет четвёртый
+5️⃣ Совет пятый
+
+💾 Сохраните, пригодится!`
+            };
+
+            post = templates[type] || templates.education;
+
+            // Add CTA
+            if (includeCTA) {
+                post += '
+
+👉 Напишите в комментариях, если было полезно!';
+            }
+
+            // Add hashtags
+            if (includeHashtags) {
+                const hashtags = ['#rodinx', '#автоматизация', '#бизнес', '#AI', '#продажи'];
+                post += '
+
+' + hashtags.join(' ');
+            }
+
+            return post;
+        }
+
+        function copyPost() {
+            const content = document.querySelector('#generated-post-area .prose').textContent;
+            navigator.clipboard.writeText(content);
+            alert('✅ Пост скопирован в буфер обмена!');
+        }
+
+        function saveToCalendar() {
+            const content = document.querySelector('#generated-post-area .prose').textContent;
+            document.getElementById('modal-content').value = content;
+            addPost();
+        }
+
+        function regeneratePost() {
+            generatePost();
+        }
+
+        // Templates
+        function renderTemplates() {
+            const grid = document.getElementById('templates-grid');
+            grid.innerHTML = templates.map(template => `
+                <div class="glass-effect rounded-xl p-6 cursor-pointer hover:scale-105 transition-all" 
+                     onclick="useTemplate('${template.content.replace(/'/g, "\'")}')">
+                    <div class="text-2xl mb-3">${template.title.split(' ')[0]}</div>
+                    <h4 class="font-bold text-lg mb-2 text-white">${template.title}</h4>
+                    <p class="text-slate-400 text-sm mb-4">${template.description}</p>
+                    <button class="w-full px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg font-semibold transition-all">
+                        Использовать
+                    </button>
+                </div>
+            `).join('');
+        }
+
+        function useTemplate(content) {
+            document.getElementById('modal-content').value = content;
+            document.getElementById('char-count').textContent = content.length;
+            addPost();
+        }
+
+        // Stats
+        function updateStats() {
+            const planned = posts.filter(p => p.status === 'scheduled').length;
+            const published = posts.filter(p => p.status === 'published').length;
+            const reach = planned * 150 + published * 200; // Mock calculation
+
+            document.getElementById('stat-planned').textContent = planned;
+            document.getElementById('stat-published').textContent = published;
+            document.getElementById('stat-reach').textContent = reach.toLocaleString();
+        }
+
+        // Storage
+        function saveToStorage() {
+            localStorage.setItem('content-calendar-posts', JSON.stringify(posts));
+        }
+
+        function loadFromStorage() {
+            const stored = localStorage.getItem('content-calendar-posts');
+            if (stored) {
+                posts = JSON.parse(stored);
+            }
+        }
+
+        function exportCalendar() {
+            const dataStr = JSON.stringify(posts, null, 2);
+            const dataBlob = new Blob([dataStr], {type: 'application/json'});
+            const url = URL.createObjectURL(dataBlob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `content-calendar-${new Date().toISOString().split('T')[0]}.json`;
+            link.click();
+        }
+
+        function showStats() {
+            switchTab('analytics');
+        }
+    </script>
+</body>
+</html>
